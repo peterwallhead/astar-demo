@@ -5,7 +5,7 @@ import sys
 
 pygame.init()
 
-CELL_SIZE = 60
+CELL_SIZE = 30
 ROWS = 15
 COLS = 15
 LINE_WIDTH = 1
@@ -23,7 +23,7 @@ OPEN_COLOR = (90, 180, 255)       # Open set (frontier)
 CLOSED_COLOR = (80, 120, 220)     # Closed set
 PATH_COLOR = (245, 200, 66)       # Final selected path
 CURRENT_COLOR = (255, 165, 0)     # Currently expanded node
-BLOCKED_COLOR = (20, 20, 20)      # Wall color
+BLOCKED_COLOR = (255, 255, 255)   # Wall color
 
 start_set = False
 goal_set = False
@@ -66,7 +66,13 @@ def get_cell_centre(row, col):
 
 
 def heuristic(row_a, col_a, row_b, col_b):
-    return abs(row_a - row_b) + abs(col_a - col_b)
+    d_row = abs(row_a - row_b)
+    d_col = abs(col_a - col_b)
+
+    diagonal_moves = min(d_row, d_col)
+    straight_moves = abs(d_row - d_col)
+
+    return (diagonal_moves * 14) + (straight_moves * 10)
 
 
 def reset_search_state():
@@ -148,12 +154,30 @@ def start_search():
 
 
 def get_neighbors(row, col):
-    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    # Return valid neighboring cells (row, col) coordinates
+    directions = [
+        (-1,  0),  # up
+        ( 1,  0),  # down
+        ( 0, -1),  # left
+        ( 0,  1),  # right
+        (-1, -1),  # up-left
+        (-1,  1),  # up-right
+        ( 1, -1),  # down-left
+        ( 1,  1),  # down-right
+    ]
     for d_row, d_col in directions:
         n_row = row + d_row
         n_col = col + d_col
         if 0 <= n_row < ROWS and 0 <= n_col < COLS:
-            yield n_row, n_col
+            if d_row != 0 and d_col != 0:
+                side_cell_1 = grid_matrix[row][n_col]
+                side_cell_2 = grid_matrix[n_row][col]
+
+                if not side_cell_1["blocked"] and not side_cell_2["blocked"]:
+                    yield n_row, n_col, d_row, d_col
+
+            else:
+                yield n_row, n_col, d_row, d_col
 
 
 def a_star_step():
@@ -182,7 +206,7 @@ def a_star_step():
     if not current_cell["start"] and not current_cell["goal"]:
         current_cell["closed"] = True
 
-    for n_row, n_col in get_neighbors(current_row, current_col):
+    for n_row, n_col, d_row, d_col in get_neighbors(current_row, current_col):
         neighbor = grid_matrix[n_row][n_col]
 
         if neighbor["blocked"] or (n_row, n_col) in closed_set:
@@ -192,7 +216,12 @@ def a_star_step():
         if predecessor not in neighbor["history"]:
             neighbor["history"].append(predecessor)
 
-        tentative_g = current_cell["g_cost"] + 1
+        if d_row != 0 and d_col != 0:
+            movement_cost = 14
+        else:
+            movement_cost = 10
+            
+        tentative_g = current_cell["g_cost"] + movement_cost
         if tentative_g < neighbor["g_cost"]:
             goal_row, goal_col = goal_pos
             neighbor["parent"] = predecessor
@@ -287,4 +316,5 @@ while True:
             pygame.draw.rect(SCREEN, GRID_COLOR, (x, y, CELL_SIZE, CELL_SIZE), LINE_WIDTH)
 
     pygame.display.flip()
-    clock.tick(120)
+    clock.tick(60)
+
