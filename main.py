@@ -10,8 +10,42 @@ ROWS = 15
 COLS = 15
 LINE_WIDTH = 1
 
-WIDTH = COLS * CELL_SIZE
-HEIGHT = ROWS * CELL_SIZE
+SIDEBAR_WIDTH = 200
+
+GRID_WIDTH = COLS * CELL_SIZE
+GRID_HEIGHT = ROWS * CELL_SIZE
+
+WIDTH = SIDEBAR_WIDTH + GRID_WIDTH
+HEIGHT = GRID_HEIGHT
+
+SIDEBAR_RECT = pygame.Rect(
+    0,
+    0,
+    SIDEBAR_WIDTH,
+    HEIGHT
+)
+
+TITLE_RECT = pygame.Rect(
+    SIDEBAR_RECT.left + 15,
+    SIDEBAR_RECT.top + 15,
+    SIDEBAR_RECT.width - 30,
+    40
+)
+
+INSTRUCTIONS_RECT = pygame.Rect(
+    SIDEBAR_RECT.left + 15,
+    TITLE_RECT.bottom + 20,
+    SIDEBAR_RECT.width - 30,
+    200
+)
+
+GRID_RECT = pygame.Rect(
+    SIDEBAR_WIDTH,
+    0,
+    GRID_WIDTH,
+    GRID_HEIGHT
+)
+
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("A* Demo")
 
@@ -58,10 +92,60 @@ grid_matrix = [
     for _ in range(ROWS)
 ]
 
+title_font = pygame.font.SysFont(None, 32)
+
+title_surface = title_font.render(
+    "A* Pathfinding",
+    True,
+    (255, 255, 255)
+)
+
+title_text_rect = title_surface.get_rect(
+    left=TITLE_RECT.left,
+    centery=TITLE_RECT.centery
+)
+
+instructions = (
+    "Left click to select the start and goal positions. "
+    "Right click to add or remove obstacles. "
+    "Press SPACE to restart the search and R to reset the grid."
+)
+
+font = pygame.font.SysFont(None, 22)
+
+
+def draw_paragraph(surface, text, font, color, rect, line_spacing=4):
+    words = text.split(" ")
+    lines = []
+    current_line = ""
+
+    for word in words:
+        test_line = current_line + word + " "
+
+        # Check how wide this line would be
+        if font.size(test_line)[0] <= rect.width:
+            current_line = test_line
+        else:
+            lines.append(current_line)
+            current_line = word + " "
+
+    # Don't forget the final line
+    if current_line:
+        lines.append(current_line)
+
+    # Draw each line
+    y = rect.top
+
+    for line in lines:
+        text_surface = font.render(line.strip(), True, color)
+        surface.blit(text_surface, (rect.left, y))
+
+        y += font.get_linesize() + line_spacing
 
 def get_cell_centre(row, col):
-    centre_x = (col * CELL_SIZE) + (CELL_SIZE // 2)
-    centre_y = (row * CELL_SIZE) + (CELL_SIZE // 2)
+    centre_x = GRID_RECT.x + (col * CELL_SIZE) + (CELL_SIZE // 2)
+    centre_y = GRID_RECT.y + (row * CELL_SIZE) + (CELL_SIZE // 2)
+
     return centre_x, centre_y
 
 
@@ -240,11 +324,14 @@ while True:
             sys.exit()
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            mouse_pos = pygame.mouse.get_pos()
-            col = mouse_pos[0] // CELL_SIZE
-            row = mouse_pos[1] // CELL_SIZE
+            mouse_x, mouse_y = pygame.mouse.get_pos()
 
-            if 0 <= row < ROWS and 0 <= col < COLS:
+            if GRID_RECT.collidepoint(mouse_x, mouse_y):
+                grid_x = mouse_x - GRID_RECT.x
+                grid_y = mouse_y - GRID_RECT.y
+
+                col = grid_x // CELL_SIZE
+                row = grid_y // CELL_SIZE
                 clicked_cell = grid_matrix[row][col]
 
                 if event.button == 1:  # Left click
@@ -292,10 +379,20 @@ while True:
 
     SCREEN.fill(BG_COLOR)
 
+    SCREEN.blit(title_surface, title_text_rect)
+
+    draw_paragraph(
+        SCREEN,
+        instructions,
+        font,
+        (255, 255, 255),
+        INSTRUCTIONS_RECT
+    )
+
     for row in range(ROWS):
         for col in range(COLS):
-            x = col * CELL_SIZE
-            y = row * CELL_SIZE
+            x = GRID_RECT.x + (col * CELL_SIZE)
+            y = GRID_RECT.y + (row * CELL_SIZE)
             cell = grid_matrix[row][col]
 
             if cell["start"]:
